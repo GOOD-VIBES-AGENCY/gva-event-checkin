@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>GVA 受付</title>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:#0f0f1a;color:#fff;font-family:-apple-system,Helvetica,sans-serif;min-height:100vh}
+    .hd{background:linear-gradient(135deg,#ff69b4,#e91e8c);padding:16px 20px;text-align:center}
+    .hd h1{font-size:17px;font-weight:800}
+    .hd p{font-size:11px;opacity:.75;margin-top:3px}
+    .stats{display:flex;background:#16213e;padding:12px 10px;gap:8px}
+    .stat{flex:1;background:#0d0d2e;border-radius:10px;padding:10px 6px;text-align:center}
+    .stat .n{font-size:22px;font-weight:800;color:#ff69b4;line-height:1}
+    .stat .l{font-size:10px;color:#555;margin-top:3px}
+    .scan-area{padding:24px 20px;text-align:center}
+    .scan-btn{
+      display:block;width:100%;background:linear-gradient(135deg,#ff69b4,#e91e8c);
+      color:#fff;border:none;border-radius:16px;padding:24px 20px;
+      font-size:20px;font-weight:800;cursor:pointer;
+      box-shadow:0 4px 20px rgba(255,105,180,.4);
+      -webkit-tap-highlight-color:transparent;
+    }
+    .scan-btn span{display:block;font-size:12px;font-weight:400;opacity:.8;margin-top:5px}
+    #qrInput{display:none}
+    .list-area{padding:0 10px 30px}
+    .list-hd{font-size:12px;color:#444;padding:8px 4px;display:flex;justify-content:space-between;align-items:center}
+    .reload-btn{background:#1a1a3e;color:#ff69b4;border:1px solid #ff69b4;border-radius:8px;padding:5px 12px;font-size:11px;cursor:pointer}
+    table{width:100%;border-collapse:collapse;font-size:12px}
+    th{background:#16213e;padding:8px 6px;text-align:left;color:#666;font-weight:600;position:sticky;top:0}
+    td{padding:8px 6px;border-bottom:1px solid #111;color:#ccc}
+    #overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:99;align-items:center;justify-content:center;padding:20px}
+    #overlay.show{display:flex}
+    .card{background:#1c1c3a;border-radius:20px;padding:30px 24px;max-width:340px;width:100%;text-align:center}
+    .ico{font-size:56px}
+    .nm{font-size:22px;font-weight:800;color:#fff;margin:10px 0 6px;word-break:break-all}
+    .sl{font-size:14px;color:#aaa;margin-bottom:5px}
+    .tm{font-size:13px;color:#666}
+    .sns-box{font-size:12px;color:#ff69b4;margin-top:12px;word-break:break-all;padding:8px 12px;background:rgba(255,105,180,.1);border-radius:8px}
+    .card.success{border:2px solid #00cc66}
+    .card.already{border:2px solid #ffcc00}
+    .card.notfound{border:2px solid #ff4444}
+    .card.loading{border:2px solid #555}
+    .next-btn{display:block;width:100%;margin-top:18px;background:#ff69b4;color:#fff;border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:700;cursor:pointer}
+  </style>
+</head>
+<body>
+
+<div class="hd">
+  <h1>GVA 受付システム</h1>
+  <p>PHOEBE BEAUTY UP x Barbie 新作発表会</p>
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="n" id="sTotal">-</div><div class="l">総登録者</div></div>
+  <div class="stat"><div class="n" id="sCin">-</div><div class="l">入場済み</div></div>
+  <div class="stat"><div class="n" id="sRem">-</div><div class="l">未入場</div></div>
+  <div class="stat"><div class="n" id="sComp">-</div><div class="l">同伴済み</div></div>
+</div>
+
+<div class="scan-area">
+  <button class="scan-btn" onclick="document.getElementById('qrInput').click()">
+    QRコードをスキャン
+    <span>タップしてカメラを起動</span>
+  </button>
+  <input type="file" accept="image/*" capture="environment" id="qrInput">
+</div>
+
+<div class="list-area">
+  <div class="list-hd">
+    <span>登録者一覧</span>
+    <button class="reload-btn" onclick="loadStats()">更新</button>
+  </div>
+  <table id="listTable">
+    <tr><th>名前</th><th>時間帯</th><th>入場</th></tr>
+  </table>
+</div>
+
+<div id="overlay">
+  <div class="card" id="card">
+    <div class="ico" id="ico"></div>
+    <div class="nm"  id="nm"></div>
+    <div class="sl"  id="sl"></div>
+    <div class="tm"  id="tm"></div>
+    <div class="sns-box" id="snsBox" style="display:none"></div>
+    <button class="next-btn" id="nextBtn" onclick="closeResult()">次の方へ</button>
+  </div>
+</div>
+
+<script>
+  // ★ デプロイ後にGASのURLを設定 ★
+  var GAS_URL = 'https://script.google.com/macros/s/AKfycbxSqFWg2xqlfD3WFdXvJRR6ZD6fgmITobVnvEM3lC2xODHI__xM1WkMSlPcZZcLS2-h/exec';
+
+  // QRスキャン処理
+  document.getElementById('qrInput').addEventListener('change', function(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    e.target.value = '';
+    showResult('loading', '', '読み取り中...', '', '', '');
+
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      var img = new Image();
+      img.onload = function() {
+        var canvas = document.createElement('canvas');
+        canvas.width = img.width; canvas.height = img.height;
+        canvas.getContext('2d').drawImage(img, 0, 0);
+        var imgData = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+        var code = jsQR(imgData.data, imgData.width, imgData.height);
+        if (!code) {
+          showResult('notfound', '', '読み取り失敗', 'もう一度試してください', '', '');
+          return;
+        }
+        // QRデータからid・typeを抽出
+        var id = '', type = 'main';
+        try {
+          var u = new URL(code.data);
+          id   = u.searchParams.get('id')   || '';
+          type = u.searchParams.get('type') || 'main';
+        } catch(ex) { id = code.data; }
+
+        if (!id) { showResult('notfound', '', 'QRコード不明', 'スタッフに確認してください', '', ''); return; }
+
+        // GAS APIにfetch
+        fetch(GAS_URL + '?api=1&id=' + encodeURIComponent(id) + '&type=' + encodeURIComponent(type))
+          .then(function(res) { return res.json(); })
+          .then(function(r) {
+            if (r.ok === 'success')      showResult('success',  '', r.name, r.slot, '入場: ' + r.time, r.snsUrl || '');
+            else if (r.ok === 'already') showResult('already',  '', r.name, r.slot, '入場済み: ' + r.time, r.snsUrl || '');
+            else                         showResult('notfound', '', 'QRコード不明', 'スタッフに確認してください', '', '');
+            loadStats();
+          })
+          .catch(function(err) {
+            showResult('notfound', '', 'エラー', String(err), '', '');
+          });
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  function showResult(type, ico, nm, sl, tm, sns) {
+    var icons = {success: '✅', already: '⚠️', notfound: '❌', loading: '⏳'};
+    var card = document.getElementById('card');
+    card.className = 'card ' + type;
+    document.getElementById('ico').textContent = icons[type] || '';
+    document.getElementById('nm').textContent  = nm;
+    document.getElementById('sl').textContent  = sl;
+    document.getElementById('tm').textContent  = tm;
+    var sEl = document.getElementById('snsBox');
+    if (sns) { sEl.textContent = 'SNS: ' + sns; sEl.style.display = 'block'; }
+    else      { sEl.textContent = ''; sEl.style.display = 'none'; }
+    document.getElementById('nextBtn').style.display = (type === 'loading') ? 'none' : 'block';
+    document.getElementById('overlay').classList.add('show');
+  }
+
+  function closeResult() {
+    document.getElementById('overlay').classList.remove('show');
+  }
+
+  // 統計 + 一覧取得
+  function loadStats() {
+    fetch(GAS_URL + '?api=1')
+      .then(function(res) { return res.json(); })
+      .then(function(d) {
+        document.getElementById('sTotal').textContent = d.total || 0;
+        document.getElementById('sCin').textContent   = d.cin   || 0;
+        document.getElementById('sRem').textContent   = (d.total || 0) - (d.cin || 0);
+        document.getElementById('sComp').textContent  = (d.cinComp || 0) + '/' + (d.totalComp || 0);
+      })
+      .catch(function() {});
+  }
+
+  loadStats();
+  setInterval(loadStats, 30000);
+</script>
+</body>
+</html>
