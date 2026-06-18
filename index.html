@@ -8,29 +8,30 @@
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{background:#0f0f1a;color:#fff;font-family:-apple-system,Helvetica,sans-serif;min-height:100vh}
-    .hd{background:linear-gradient(135deg,#ff69b4,#e91e8c);padding:16px 20px;text-align:center}
-    .hd h1{font-size:17px;font-weight:800}
-    .hd p{font-size:11px;opacity:.75;margin-top:3px}
-    .stats{display:flex;background:#16213e;padding:12px 10px;gap:8px}
-    .stat{flex:1;background:#0d0d2e;border-radius:10px;padding:10px 6px;text-align:center}
-    .stat .n{font-size:22px;font-weight:800;color:#ff69b4;line-height:1}
-    .stat .l{font-size:10px;color:#555;margin-top:3px}
-    .scan-area{padding:24px 20px;text-align:center}
-    .scan-btn{
-      display:block;width:100%;background:linear-gradient(135deg,#ff69b4,#e91e8c);
-      color:#fff;border:none;border-radius:16px;padding:24px 20px;
-      font-size:20px;font-weight:800;cursor:pointer;
-      box-shadow:0 4px 20px rgba(255,105,180,.4);
-      -webkit-tap-highlight-color:transparent;
+    .hd{background:linear-gradient(135deg,#ff69b4,#e91e8c);padding:14px 20px;text-align:center}
+    .hd h1{font-size:16px;font-weight:800}
+    .hd p{font-size:11px;opacity:.75;margin-top:2px}
+    .stats{display:flex;background:#16213e;padding:10px;gap:8px}
+    .stat{flex:1;background:#0d0d2e;border-radius:10px;padding:8px 4px;text-align:center}
+    .stat .n{font-size:20px;font-weight:800;color:#ff69b4;line-height:1}
+    .stat .l{font-size:10px;color:#555;margin-top:2px}
+    /* カメラビュー */
+    .cam-wrap{position:relative;width:100%;max-width:500px;margin:0 auto}
+    #video{width:100%;display:block;background:#000}
+    .scan-frame{
+      position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+      width:220px;height:220px;border:3px solid #ff69b4;border-radius:12px;
+      box-shadow:0 0 0 9999px rgba(0,0,0,.5);pointer-events:none
     }
-    .scan-btn span{display:block;font-size:12px;font-weight:400;opacity:.8;margin-top:5px}
-    #qrInput{display:none}
-    .list-area{padding:0 10px 30px}
-    .list-hd{font-size:12px;color:#444;padding:8px 4px;display:flex;justify-content:space-between;align-items:center}
-    .reload-btn{background:#1a1a3e;color:#ff69b4;border:1px solid #ff69b4;border-radius:8px;padding:5px 12px;font-size:11px;cursor:pointer}
-    table{width:100%;border-collapse:collapse;font-size:12px}
-    th{background:#16213e;padding:8px 6px;text-align:left;color:#666;font-weight:600;position:sticky;top:0}
-    td{padding:8px 6px;border-bottom:1px solid #111;color:#ccc}
+    .scan-line{
+      position:absolute;top:0;left:0;width:100%;height:3px;
+      background:linear-gradient(90deg,transparent,#ff69b4,transparent);
+      animation:scan 2s linear infinite
+    }
+    @keyframes scan{0%{top:0}100%{top:100%}}
+    .cam-msg{text-align:center;padding:10px;font-size:13px;color:#666;min-height:32px}
+    #canvas{display:none}
+    /* 結果オーバーレイ */
     #overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:99;align-items:center;justify-content:center;padding:20px}
     #overlay.show{display:flex}
     .card{background:#1c1c3a;border-radius:20px;padding:30px 24px;max-width:340px;width:100%;text-align:center}
@@ -43,7 +44,7 @@
     .card.already{border:2px solid #ffcc00}
     .card.notfound{border:2px solid #ff4444}
     .card.loading{border:2px solid #555}
-    .next-btn{display:block;width:100%;margin-top:18px;background:#ff69b4;color:#fff;border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:700;cursor:pointer}
+    .next-btn{display:block;width:100%;margin-top:18px;background:#ff69b4;color:#fff;border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent}
   </style>
 </head>
 <body>
@@ -60,23 +61,12 @@
   <div class="stat"><div class="n" id="sComp">-</div><div class="l">同伴済み</div></div>
 </div>
 
-<div class="scan-area">
-  <button class="scan-btn" onclick="document.getElementById('qrInput').click()">
-    QRコードをスキャン
-    <span>タップしてカメラを起動</span>
-  </button>
-  <input type="file" accept="image/*" capture="environment" id="qrInput">
+<div class="cam-wrap">
+  <video id="video" autoplay playsinline muted></video>
+  <div class="scan-frame"><div class="scan-line"></div></div>
+  <canvas id="canvas"></canvas>
 </div>
-
-<div class="list-area">
-  <div class="list-hd">
-    <span>登録者一覧</span>
-    <button class="reload-btn" onclick="loadStats()">更新</button>
-  </div>
-  <table id="listTable">
-    <tr><th>名前</th><th>時間帯</th><th>入場</th></tr>
-  </table>
-</div>
+<p class="cam-msg" id="camMsg">カメラを起動中...</p>
 
 <div id="overlay">
   <div class="card" id="card">
@@ -90,91 +80,105 @@
 </div>
 
 <script>
-  // ★ デプロイ後にGASのURLを設定 ★
-  var GAS_URL = 'https://script.google.com/macros/s/AKfycbxSqFWg2xqlfD3WFdXvJRR6ZD6fgmITobVnvEM3lC2xODHI__xM1WkMSlPcZZcLS2-h/exec';
+var GAS_URL = 'https://script.google.com/macros/s/AKfycbxSqFWg2xqlfD3WFdXvJRR6ZD6fgmITobVnvEM3lC2xODHI__xM1WkMSlPcZZcLS2-h/exec';
 
-  // QRスキャン処理
-  document.getElementById('qrInput').addEventListener('change', function(e) {
-    var file = e.target.files[0];
-    if (!file) return;
-    e.target.value = '';
-    showResult('loading', '', '読み取り中...', '', '', '');
+var video   = document.getElementById('video');
+var canvas  = document.getElementById('canvas');
+var ctx     = canvas.getContext('2d');
+var camMsg  = document.getElementById('camMsg');
+var busy    = false;
 
-    var reader = new FileReader();
-    reader.onload = function(ev) {
-      var img = new Image();
-      img.onload = function() {
-        var canvas = document.createElement('canvas');
-        canvas.width = img.width; canvas.height = img.height;
-        canvas.getContext('2d').drawImage(img, 0, 0);
-        var imgData = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
-        var code = jsQR(imgData.data, imgData.width, imgData.height);
-        if (!code) {
-          showResult('notfound', '', '読み取り失敗', 'もう一度試してください', '', '');
-          return;
-        }
-        // QRデータからid・typeを抽出
-        var id = '', type = 'main';
-        try {
-          var u = new URL(code.data);
-          id   = u.searchParams.get('id')   || '';
-          type = u.searchParams.get('type') || 'main';
-        } catch(ex) { id = code.data; }
-
-        if (!id) { showResult('notfound', '', 'QRコード不明', 'スタッフに確認してください', '', ''); return; }
-
-        // GAS APIにfetch
-        fetch(GAS_URL + '?api=1&id=' + encodeURIComponent(id) + '&type=' + encodeURIComponent(type))
-          .then(function(res) { return res.json(); })
-          .then(function(r) {
-            if (r.ok === 'success')      showResult('success',  '', r.name, r.slot, '入場: ' + r.time, r.snsUrl || '');
-            else if (r.ok === 'already') showResult('already',  '', r.name, r.slot, '入場済み: ' + r.time, r.snsUrl || '');
-            else                         showResult('notfound', '', 'QRコード不明', 'スタッフに確認してください', '', '');
-            loadStats();
-          })
-          .catch(function(err) {
-            showResult('notfound', '', 'エラー', String(err), '', '');
-          });
-      };
-      img.src = ev.target.result;
-    };
-    reader.readAsDataURL(file);
+// カメラ起動
+navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+  .then(function(stream) {
+    video.srcObject = stream;
+    video.play();
+    camMsg.textContent = 'QRコードを枠内に合わせてください';
+    requestAnimationFrame(tick);
+  })
+  .catch(function(err) {
+    camMsg.textContent = 'カメラ権限を許可してページを再読込してください';
+    console.error(err);
   });
 
-  function showResult(type, ico, nm, sl, tm, sns) {
-    var icons = {success: '✅', already: '⚠️', notfound: '❌', loading: '⏳'};
-    var card = document.getElementById('card');
-    card.className = 'card ' + type;
-    document.getElementById('ico').textContent = icons[type] || '';
-    document.getElementById('nm').textContent  = nm;
-    document.getElementById('sl').textContent  = sl;
-    document.getElementById('tm').textContent  = tm;
-    var sEl = document.getElementById('snsBox');
-    if (sns) { sEl.textContent = 'SNS: ' + sns; sEl.style.display = 'block'; }
-    else      { sEl.textContent = ''; sEl.style.display = 'none'; }
-    document.getElementById('nextBtn').style.display = (type === 'loading') ? 'none' : 'block';
-    document.getElementById('overlay').classList.add('show');
+// 毎フレームQRを検出
+function tick() {
+  if (!busy && video.readyState === video.HAVE_ENOUGH_DATA) {
+    canvas.width  = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0);
+    var d = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    var code = jsQR(d.data, d.width, d.height, { inversionAttempts: 'dontInvert' });
+    if (code) {
+      busy = true;
+      showResult('loading', '', '処理中...', '', '', '');
+      processQR(code.data);
+    }
+  }
+  requestAnimationFrame(tick);
+}
+
+function processQR(data) {
+  var id = '', type = 'main';
+  try {
+    var u = new URL(data);
+    id   = u.searchParams.get('id')   || '';
+    type = u.searchParams.get('type') || 'main';
+  } catch(e) { id = data; }
+
+  if (!id) {
+    showResult('notfound', '', 'QRコード不明', 'スタッフに確認してください', '', '');
+    setTimeout(function(){ closeResult(); busy = false; }, 3000);
+    return;
   }
 
-  function closeResult() {
-    document.getElementById('overlay').classList.remove('show');
-  }
+  fetch(GAS_URL + '?api=1&id=' + encodeURIComponent(id) + '&type=' + encodeURIComponent(type))
+    .then(function(res){ return res.json(); })
+    .then(function(r) {
+      if (r.ok === 'success')      showResult('success',  '', r.name, r.slot, '入場: ' + r.time, r.snsUrl || '');
+      else if (r.ok === 'already') showResult('already',  '', r.name, r.slot, '入場済み: ' + r.time, r.snsUrl || '');
+      else                         showResult('notfound', '', 'QRコード不明', 'スタッフに確認してください', '', '');
+      loadStats();
+    })
+    .catch(function(err) {
+      showResult('notfound', '', 'エラー', String(err), '', '');
+      setTimeout(function(){ closeResult(); busy = false; }, 3000);
+    });
+}
 
-  // 統計 + 一覧取得
-  function loadStats() {
-    fetch(GAS_URL + '?api=1')
-      .then(function(res) { return res.json(); })
-      .then(function(d) {
-        document.getElementById('sTotal').textContent = d.total || 0;
-        document.getElementById('sCin').textContent   = d.cin   || 0;
-        document.getElementById('sRem').textContent   = (d.total || 0) - (d.cin || 0);
-        document.getElementById('sComp').textContent  = (d.cinComp || 0) + '/' + (d.totalComp || 0);
-      })
-      .catch(function() {});
-  }
+function showResult(type, ico, nm, sl, tm, sns) {
+  var icons = { success:'✅', already:'⚠️', notfound:'❌', loading:'⏳' };
+  var c = document.getElementById('card');
+  c.className = 'card ' + type;
+  document.getElementById('ico').textContent = icons[type] || '';
+  document.getElementById('nm').textContent  = nm;
+  document.getElementById('sl').textContent  = sl;
+  document.getElementById('tm').textContent  = tm;
+  var sEl = document.getElementById('snsBox');
+  if (sns) { sEl.textContent = 'SNS: ' + sns; sEl.style.display = 'block'; }
+  else     { sEl.textContent = ''; sEl.style.display = 'none'; }
+  document.getElementById('nextBtn').style.display = (type === 'loading') ? 'none' : 'block';
+  document.getElementById('overlay').classList.add('show');
+}
 
-  loadStats();
-  setInterval(loadStats, 30000);
+function closeResult() {
+  document.getElementById('overlay').classList.remove('show');
+  busy = false;
+}
+
+function loadStats() {
+  fetch(GAS_URL + '?api=1')
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      document.getElementById('sTotal').textContent = d.total     || 0;
+      document.getElementById('sCin').textContent   = d.cin       || 0;
+      document.getElementById('sRem').textContent   = (d.total||0) - (d.cin||0);
+      document.getElementById('sComp').textContent  = (d.cinComp||0) + '/' + (d.totalComp||0);
+    }).catch(function(){});
+}
+
+loadStats();
+setInterval(loadStats, 30000);
 </script>
 </body>
 </html>
