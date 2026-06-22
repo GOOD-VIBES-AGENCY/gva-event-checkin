@@ -50,13 +50,14 @@ const C = {
   TIMESLOT:     6,   // F
   COMPANION:    7,   // G
   COMP_NAME:    8,   // H ← お連れさまの名前（フォーム追加質問）
-  UID:          9,   // I ← GAS追加
-  CID:          10,  // J ← GAS追加
-  MAIL_SENT:    11,  // K ← GAS追加
-  CHECKED_IN:   12,  // L ← GAS追加
-  CHECKIN_TIME: 13,  // M ← GAS追加
-  COMP_IN:      14,  // N ← GAS追加
-  COMP_TIME:    15,  // O ← GAS追加
+  COMP_SNS:     9,   // I ← お連れさまのSNS URL（フォーム追加質問）
+  UID:          10,  // J ← GAS追加
+  CID:          11,  // K ← GAS追加
+  MAIL_SENT:    12,  // L ← GAS追加
+  CHECKED_IN:   13,  // M ← GAS追加
+  CHECKIN_TIME: 14,  // N ← GAS追加
+  COMP_IN:      15,  // O ← GAS追加
+  COMP_TIME:    16,  // P ← GAS追加
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -91,11 +92,11 @@ function nowJST() {
 /** H〜N列にヘッダーを追加（初回のみ手動実行） */
 function addHeaders() {
   const sh = getSheet();
-  // I列(9)からGAS追加列のヘッダーを設定（H列はお連れさまの名前・フォーム回答）
+  // J列(10)からGAS追加列のヘッダーを設定（H列=お連れさまの名前、I列=お連れさまのSNS URL）
   ['本人ID','同伴者ID','メール送信','本人入場','本人入場時刻','同伴者入場','同伴者入場時刻']
     .forEach((h, i) => sh.getRange(1, C.UID + i).setValue(h));
   SpreadsheetApp.flush();
-  Logger.log('ヘッダー追加完了（I列から）');
+  Logger.log('ヘッダー追加完了（J列から）');
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -104,7 +105,7 @@ function addHeaders() {
 function onFormSubmit(e) {
   const sh  = getSheet();
   const row = e.range.getRow();
-  const v   = sh.getRange(row, 1, 1, 8).getValues()[0];  // H列（お連れさまの名前）まで読む
+  const v   = sh.getRange(row, 1, 1, 9).getValues()[0];  // I列（お連れさまのSNS URL）まで読む
 
   const name     = v[C.NAME - 1];
   const email    = v[C.EMAIL - 1];
