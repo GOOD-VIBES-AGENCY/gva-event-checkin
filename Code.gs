@@ -7,7 +7,7 @@
  * 【セットアップ手順】
  *  1. スプレッドシートを開く
  *  2. 拡張機能 → Apps Script → このコードを貼り付け → 保存
- *  3. addHeaders を実行してH〜N列にヘッダーを追加
+ *  3. addHeaders を実行してI〜O列にヘッダーを追加
  *  4. 「デプロイ」→「新しいデプロイ」
  *     - 種類: ウェブアプリ
  *     - 実行ユーザー: 自分
@@ -91,11 +91,11 @@ function nowJST() {
 /** H〜N列にヘッダーを追加（初回のみ手動実行） */
 function addHeaders() {
   const sh = getSheet();
-  // J列(10)からGAS追加列のヘッダーを設定
+  // I列(9)からGAS追加列のヘッダーを設定（H列はお連れさまの名前・フォーム回答）
   ['本人ID','同伴者ID','メール送信','本人入場','本人入場時刻','同伴者入場','同伴者入場時刻']
     .forEach((h, i) => sh.getRange(1, C.UID + i).setValue(h));
   SpreadsheetApp.flush();
-  Logger.log('ヘッダー追加完了（J列から）');
+  Logger.log('ヘッダー追加完了（I列から）');
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -104,7 +104,7 @@ function addHeaders() {
 function onFormSubmit(e) {
   const sh  = getSheet();
   const row = e.range.getRow();
-  const v   = sh.getRange(row, 1, 1, 7).getValues()[0];
+  const v   = sh.getRange(row, 1, 1, 8).getValues()[0];  // H列（お連れさまの名前）まで読む
 
   const name     = v[C.NAME - 1];
   const email    = v[C.EMAIL - 1];
@@ -258,24 +258,6 @@ function doGet(e) {
   const id   = e.parameter.id;
   const type = e.parameter.type || 'main';
   const api  = e.parameter.api;
-
-  // デバッグ用: スプレッドシートの実際のIDを返す（確認後削除）
-  if (api === 'debug') {
-    const sh = getSheet();
-    const data = sh.getDataRange().getValues();
-    const result = [];
-    for (let i = 1; i < data.length; i++) {
-      result.push({
-        row: i + 1,
-        name: data[i][C.NAME - 1],
-        uid: '[' + String(data[i][C.UID - 1]) + ']',   // 前後の空白も見える
-        cid: '[' + String(data[i][C.CID - 1]) + ']',
-        uid_len: String(data[i][C.UID - 1]).length,
-      });
-    }
-    return ContentService.createTextOutput(JSON.stringify(result, null, 2))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
 
   // GitHub PagesからのAPI呼び出し → JSON返却
   if (api === '1') {
