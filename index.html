@@ -235,6 +235,34 @@ function tick() {
 }
 
 // ─────────────────────────────────────────────────────────────
+// 全GASを順番に試す（QRのURLがどのGASか判別できなかった場合）
+function tryAllGas(id, type, tabs, idx) {
+  if (idx >= tabs.length) {
+    showResult('notfound', '', 'QRコード不明', 'スタッフに確認してください', '', '');
+    setTimeout(function(){ closeResult(); busy = false; }, 3000);
+    return;
+  }
+  var gasUrl = GAS_URLS[tabs[idx]];
+  if (!gasUrl || gasUrl === 'MEDIA_GAS_URL' || gasUrl === 'RETAIL_GAS_URL') {
+    tryAllGas(id, type, tabs, idx + 1);
+    return;
+  }
+  var apiUrl = gasUrl + '?api=1&id=' + encodeURIComponent(id) + '&type=' + encodeURIComponent(type);
+  fetch(apiUrl, { redirect: 'follow' })
+    .then(function(res){ return res.json(); })
+    .then(function(r) {
+      if (r.ok === 'success' || r.ok === 'already') {
+        switchTab(tabs[idx]); // 見つかったタブに切り替え
+        if (r.ok === 'success')      showResult('success',  '', r.name, r.slot, '入場: ' + r.time, r.snsUrl || '');
+        else if (r.ok === 'already') showResult('already',  '', r.name, r.slot, '入場済み: ' + r.time, r.snsUrl || '');
+        loadStats();
+      } else {
+        tryAllGas(id, type, tabs, idx + 1); // 次のGASを試す
+      }
+    })
+    .catch(function(){ tryAllGas(id, type, tabs, idx + 1); });
+}
+
 // QR処理
 // ─────────────────────────────────────────────────────────────
 function processQR(data) {
@@ -251,7 +279,27 @@ function processQR(data) {
     return;
   }
 
-  var gasUrl  = GAS_URLS[currentTab];
+  // QRコードのURLからどのGASか自動判別（タブ選択不要）
+  var gasUrl = GAS_URLS[currentTab]; // デフォルトは現在のタブ
+  try {
+    var qrHost = new URL(data).pathname; // /macros/s/SCRIPT_ID/exec
+    var matched = Object.keys(GAS_URLS).filter(function(tab) {
+      return GAS_URLS[tab] && data.indexOf(GAS_URLS[tab].split('/exec')[0].split('/s/')[1]) >= 0;
+    });
+    if (matched.length > 0) {
+      gasUrl = GAS_URLS[matched[0]];
+      if (matched[0] !== currentTab) switchTab(matched[0]); // タブも自動で切り替え
+    } else {
+      // スクリプトIDで一致しない場合は全GASを順に試す
+      gasUrl = null;
+    }
+  } catch(e) {}
+
+  if (!gasUrl) {
+    // 全GASを順番に問い合わせて見つかったものを使う
+    tryAllGas(id, type, Object.keys(GAS_URLS), 0);
+    return;
+  }
   var apiUrl  = gasUrl + '?api=1&id=' + encodeURIComponent(id) + '&type=' + encodeURIComponent(type);
 
   function doFetch(retryCount) {
