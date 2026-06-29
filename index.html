@@ -11,27 +11,52 @@
     .hd{background:linear-gradient(135deg,#ff69b4,#e91e8c);padding:14px 20px;text-align:center}
     .hd h1{font-size:16px;font-weight:800}
     .hd p{font-size:11px;opacity:.75;margin-top:2px}
+
+    /* ── タブ ── */
+    .tabs{display:flex;background:#0a0a1a;padding:8px 10px;gap:6px}
+    .tab{
+      flex:1;padding:9px 4px;border-radius:10px;border:none;
+      font-size:12px;font-weight:700;cursor:pointer;
+      background:#1a1a2e;color:#555;
+      transition:background .2s,color .2s;
+      -webkit-tap-highlight-color:transparent;
+    }
+    .tab.active-influencer{ background:#ff69b4;color:#fff; }
+    .tab.active-media     { background:#4fc3f7;color:#000; }
+    .tab.active-retail    { background:#81c784;color:#000; }
+    .tab-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:middle}
+    .dot-influencer{background:#ff69b4}
+    .dot-media     {background:#4fc3f7}
+    .dot-retail    {background:#81c784}
+
+    /* ── 統計 ── */
     .stats{display:flex;background:#16213e;padding:10px;gap:8px}
     .stat{flex:1;background:#0d0d2e;border-radius:10px;padding:8px 4px;text-align:center}
-    .stat .n{font-size:20px;font-weight:800;color:#ff69b4;line-height:1}
+    .stat .n{font-size:20px;font-weight:800;line-height:1}
     .stat .l{font-size:10px;color:#555;margin-top:2px}
-    /* カメラビュー */
+    .n-influencer{color:#ff69b4}
+    .n-media     {color:#4fc3f7}
+    .n-retail    {color:#81c784}
+
+    /* ── カメラ ── */
     .cam-wrap{position:relative;width:100%;max-width:500px;margin:0 auto}
     #video{width:100%;display:block;background:#000}
     .scan-frame{
       position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-      width:220px;height:220px;border:3px solid #ff69b4;border-radius:12px;
-      box-shadow:0 0 0 9999px rgba(0,0,0,.5);pointer-events:none
+      width:220px;height:220px;border-radius:12px;
+      box-shadow:0 0 0 9999px rgba(0,0,0,.5);pointer-events:none;
+      border:3px solid var(--accent,#ff69b4);
     }
     .scan-line{
       position:absolute;top:0;left:0;width:100%;height:3px;
-      background:linear-gradient(90deg,transparent,#ff69b4,transparent);
+      background:linear-gradient(90deg,transparent,var(--accent,#ff69b4),transparent);
       animation:scan 2s linear infinite
     }
     @keyframes scan{0%{top:0}100%{top:100%}}
     .cam-msg{text-align:center;padding:10px;font-size:13px;color:#666;min-height:32px}
     #canvas{display:none}
-    /* 結果オーバーレイ */
+
+    /* ── 結果オーバーレイ ── */
     #overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:99;align-items:center;justify-content:center;padding:20px}
     #overlay.show{display:flex}
     .card{background:#1c1c3a;border-radius:20px;padding:30px 24px;max-width:340px;width:100%;text-align:center}
@@ -40,11 +65,18 @@
     .sl{font-size:14px;color:#aaa;margin-bottom:5px}
     .tm{font-size:13px;color:#666}
     .sns-box{font-size:12px;color:#ff69b4;margin-top:12px;word-break:break-all;padding:8px 12px;background:rgba(255,105,180,.1);border-radius:8px}
-    .card.success{border:2px solid #00cc66}
-    .card.already{border:2px solid #ffcc00}
+    .card.success {border:2px solid #00cc66}
+    .card.already {border:2px solid #ffcc00}
     .card.notfound{border:2px solid #ff4444}
-    .card.loading{border:2px solid #555}
-    .next-btn{display:block;width:100%;margin-top:18px;background:#ff69b4;color:#fff;border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent}
+    .card.loading {border:2px solid #555}
+    .next-btn{display:block;width:100%;margin-top:18px;color:#fff;border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent;background:var(--accent,#ff69b4)}
+
+    /* ── タブ切替インジケーター ── */
+    .mode-badge{
+      text-align:center;padding:5px;font-size:11px;
+      font-weight:700;letter-spacing:1px;
+      background:#111;color:var(--accent,#ff69b4);
+    }
   </style>
 </head>
 <body>
@@ -53,6 +85,21 @@
   <h1>GVA 受付システム</h1>
   <p>PHOEBE BEAUTY UP x Barbie 新作発表会</p>
 </div>
+
+<!-- ★ タブ -->
+<div class="tabs">
+  <button class="tab" id="tab-influencer" onclick="switchTab('influencer')">
+    <span class="tab-dot dot-influencer"></span>インフルエンサー
+  </button>
+  <button class="tab" id="tab-media" onclick="switchTab('media')">
+    <span class="tab-dot dot-media"></span>メディア
+  </button>
+  <button class="tab" id="tab-retail" onclick="switchTab('retail')">
+    <span class="tab-dot dot-retail"></span>リテール
+  </button>
+</div>
+
+<div class="mode-badge" id="modeBadge">INFLUENCER MODE</div>
 
 <div class="stats">
   <div class="stat"><div class="n" id="sTotal">-</div><div class="l">総登録者</div></div>
@@ -63,7 +110,7 @@
 
 <div class="cam-wrap">
   <video id="video" autoplay playsinline muted></video>
-  <div class="scan-frame"><div class="scan-line"></div></div>
+  <div class="scan-frame" id="scanFrame"><div class="scan-line" id="scanLine"></div></div>
   <canvas id="canvas"></canvas>
 </div>
 <p class="cam-msg" id="camMsg">カメラを起動中...</p>
@@ -80,15 +127,75 @@
 </div>
 
 <script>
-var GAS_URL = 'https://script.google.com/macros/s/AKfycbxSqFWg2xqlfD3WFdXvJRR6ZD6fgmITobVnvEM3lC2xODHI__xM1WkMSlPcZZcLS2-h/exec';
+// ─────────────────────────────────────────────────────────────
+// GAS URL 設定
+// ─────────────────────────────────────────────────────────────
+var GAS_URLS = {
+  // インフルエンサー（デプロイ済み）
+  influencer: 'https://script.google.com/macros/s/AKfycbxSqFWg2xqlfD3WFdXvJRR6ZD6fgmITobVnvEM3lC2xODHI__xM1WkMSlPcZZcLS2-h/exec',
 
-var video   = document.getElementById('video');
-var canvas  = document.getElementById('canvas');
-var ctx     = canvas.getContext('2d');
-var camMsg  = document.getElementById('camMsg');
-var busy    = false;
+  // メディア（GASデプロイ後にここを差し替えてください）
+  // ▼▼▼ Code_media.gs をGASにデプロイし、発行されたURLをここに貼り付けてください ▼▼▼
+  media: 'https://script.google.com/macros/s/AKfycbzFO0_ITDBS0fwKt45Os-z98Cgo6g0SiNd5pk6GAuHrq47x_M8gAAZsykJnFktXlQ6Kuw/exec',
+  // ▲▲▲ 差し替え箇所 ▲▲▲
 
+  // リテール（GASデプロイ後にここを差し替えてください）
+  // ▼▼▼ Code_retail.gs をGASにデプロイし、発行されたURLをここに貼り付けてください ▼▼▼
+  retail: 'https://script.google.com/macros/s/AKfycbx1--LiHzZzohdMxDHYKsCpwmO3aLJN_jp4_Ap7efFXMEhqOZDZVoKG5DZ9HdgPi1P6EA/exec',
+  // ▲▲▲ 差し替え箇所 ▲▲▲
+};
+
+var TAB_CONFIG = {
+  influencer: { accent: '#ff69b4', label: 'INFLUENCER MODE', badge: 'active-influencer', numClass: 'n-influencer' },
+  media:      { accent: '#4fc3f7', label: 'MEDIA MODE',      badge: 'active-media',      numClass: 'n-media'      },
+  retail:     { accent: '#81c784', label: 'RETAIL MODE',     badge: 'active-retail',     numClass: 'n-retail'     },
+};
+
+var currentTab = 'influencer';
+
+// ─────────────────────────────────────────────────────────────
+// タブ切り替え
+// ─────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  var cfg = TAB_CONFIG[tab];
+
+  // アクセントカラー更新
+  document.documentElement.style.setProperty('--accent', cfg.accent);
+
+  // タブボタンのスタイル
+  ['influencer','media','retail'].forEach(function(t) {
+    var el = document.getElementById('tab-' + t);
+    el.className = 'tab' + (t === tab ? ' active-' + t : '');
+  });
+
+  // バッジ
+  document.getElementById('modeBadge').textContent = cfg.label;
+  document.getElementById('modeBadge').style.color = cfg.accent;
+
+  // 統計数字のカラー
+  ['sTotal','sCin','sRem','sComp'].forEach(function(id) {
+    var el = document.getElementById(id);
+    el.className = 'n ' + cfg.numClass;
+  });
+
+  // 統計リセット & 再読み込み
+  document.getElementById('sTotal').textContent = '-';
+  document.getElementById('sCin').textContent   = '-';
+  document.getElementById('sRem').textContent   = '-';
+  document.getElementById('sComp').textContent  = '-';
+  loadStats();
+}
+
+// ─────────────────────────────────────────────────────────────
 // カメラ起動
+// ─────────────────────────────────────────────────────────────
+var video  = document.getElementById('video');
+var canvas = document.getElementById('canvas');
+var ctx    = canvas.getContext('2d');
+var camMsg = document.getElementById('camMsg');
+var busy   = false;
+
 navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
   .then(function(stream) {
     video.srcObject = stream;
@@ -101,15 +208,24 @@ navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
     console.error(err);
   });
 
-// 毎フレームQRを検出
+// ─────────────────────────────────────────────────────────────
+// QRスキャンループ
+// ─────────────────────────────────────────────────────────────
 function tick() {
   if (!busy && video.readyState === video.HAVE_ENOUGH_DATA) {
     canvas.width  = video.videoWidth;
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0);
-    var d = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    var d    = ctx.getImageData(0, 0, canvas.width, canvas.height);
     var code = jsQR(d.data, d.width, d.height, { inversionAttempts: 'dontInvert' });
     if (code) {
+      // GAS URLが未設定なら警告
+      var gasUrl = GAS_URLS[currentTab];
+      if (gasUrl === 'MEDIA_GAS_URL' || gasUrl === 'RETAIL_GAS_URL') {
+        showResult('notfound', '', 'GAS URL 未設定', currentTab + ' のGASがまだデプロイされていません', '', '');
+        setTimeout(function(){ closeResult(); busy = false; }, 3000);
+        return;
+      }
       busy = true;
       showResult('loading', '', '処理中...', '', '', '');
       processQR(code.data);
@@ -118,6 +234,9 @@ function tick() {
   requestAnimationFrame(tick);
 }
 
+// ─────────────────────────────────────────────────────────────
+// QR処理
+// ─────────────────────────────────────────────────────────────
 function processQR(data) {
   var id = '', type = 'main';
   try {
@@ -132,7 +251,8 @@ function processQR(data) {
     return;
   }
 
-  var apiUrl = GAS_URL + '?api=1&id=' + encodeURIComponent(id) + '&type=' + encodeURIComponent(type);
+  var gasUrl  = GAS_URLS[currentTab];
+  var apiUrl  = gasUrl + '?api=1&id=' + encodeURIComponent(id) + '&type=' + encodeURIComponent(type);
 
   function doFetch(retryCount) {
     fetch(apiUrl, { redirect: 'follow' })
@@ -145,10 +265,8 @@ function processQR(data) {
       })
       .catch(function(err) {
         if (retryCount > 0) {
-          // 1回だけリトライ
           setTimeout(function(){ doFetch(retryCount - 1); }, 1000);
         } else {
-          // リトライ失敗 → QRのURL(GAS直リンク)を新しいタブで開く
           showResult('already', '', '通信エラー', '下のボタンで確認してください', '', '');
           var fallbackBtn = document.getElementById('nextBtn');
           fallbackBtn.textContent = 'GASで確認する';
@@ -165,6 +283,9 @@ function processQR(data) {
   doFetch(1);
 }
 
+// ─────────────────────────────────────────────────────────────
+// 結果表示
+// ─────────────────────────────────────────────────────────────
 function showResult(type, ico, nm, sl, tm, sns) {
   var icons = { success:'✅', already:'⚠️', notfound:'❌', loading:'⏳' };
   var c = document.getElementById('card');
@@ -185,8 +306,13 @@ function closeResult() {
   busy = false;
 }
 
+// ─────────────────────────────────────────────────────────────
+// 統計読み込み
+// ─────────────────────────────────────────────────────────────
 function loadStats() {
-  fetch(GAS_URL + '?api=1')
+  var gasUrl = GAS_URLS[currentTab];
+  if (gasUrl === 'MEDIA_GAS_URL' || gasUrl === 'RETAIL_GAS_URL') return;
+  fetch(gasUrl + '?api=1')
     .then(function(r){ return r.json(); })
     .then(function(d) {
       document.getElementById('sTotal').textContent = d.total     || 0;
@@ -196,7 +322,10 @@ function loadStats() {
     }).catch(function(){});
 }
 
-loadStats();
+// ─────────────────────────────────────────────────────────────
+// 初期化
+// ─────────────────────────────────────────────────────────────
+switchTab('influencer');
 setInterval(loadStats, 30000);
 </script>
 </body>
